@@ -96,7 +96,7 @@ RUN uv pip install torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 \
     && for r in /comfyui/custom_nodes/*/requirements.txt; do \
          [ -f "$r" ] && uv pip install -r "$r" || true; \
        done \
-    && uv pip install "transformers>=4.50.3,<5" "huggingface-hub<1.0"
+    && uv pip install "transformers>=4.50.3,<5" "huggingface-hub<1.0" sageattention
 
 # 安装 ComfyUI-Manager。comfy-cli 的 install 命令不会安装 ComfyUI-Manager，
 # 导致 cm-cli 不可用。没有 cm-cli，下游 Dockerfile 中的 comfy node install
