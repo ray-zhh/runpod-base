@@ -41,4 +41,26 @@ if [[ $cli_status -ne 0 ]]; then
   echo "Warning: comfy node install exited with status $cli_status but no errors were detected in the log — assuming success." >&2
 fi
 
+# Workaround for runpod-workers/worker-comfyui#237: `comfy node install`
+# resolves the workspace python (VIRTUAL_ENV or /comfyui/.venv) and installs
+# the nodes' pip dependencies there, but start.sh launches ComfyUI with
+# /opt/venv's python. Nodes whose dependencies landed in the wrong venv fail
+# to import at startup and are never registered ("missing" custom nodes).
+# Mirror ComfyUI's and every installed custom node's requirements into the
+# launch venv (/opt/venv), same as the base image's own DR-1170 dep loop —
+# which runs before downstream nodes are installed and therefore misses them.
+# The transformers/huggingface-hub pin mirrors the base image: ComfyUI
+# declares no upper bound, so fresh resolves can pull breaking 5.x/1.x
+# releases.
+mirror_log=$(mktemp)
+if ! uv pip install --python /opt/venv/bin/python \
+      -r /comfyui/requirements.txt \
+      $(for r in /comfyui/custom_nodes/*/requirements.txt; do [ -f "$r" ] && echo -n " -r $r"; done) \
+      "transformers>=4.50.3,<5" "huggingface-hub<1.0" >"$mirror_log" 2>&1; then
+  echo "Error: failed to mirror custom node dependencies into /opt/venv:" >&2
+  tail -n 40 "$mirror_log" >&2
+  exit 1
+fi
+rm -f "$mirror_log"
+
 exit 0 
